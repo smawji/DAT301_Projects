@@ -1,0 +1,126 @@
+---
+title: "Project_1"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+```
+
+# **Background and problem definition**
+
+Leading scientists believe that climate change is directly increasing the frequency and magnitude of natural disasters worldwide. These disasters often lead to financial hardship and economic downturn.
+
+This data set explores environmental disasters spanning from 2020 - onward. The primary dependent variable we are interested in is economic impact (in USD).
+
+**Question set: Which disaster types are the most costly, what are their frequency, and which countries suffer the most financial hardship as a result.?**
+
+# Loading data
+
+```{r}
+climate <- read.csv("global_climate_events_economic_impact_2020_2025.csv")
+#glimpse(climate)
+
+colnames <- colnames(climate)
+colnames
+```
+
+# Data wrangling, munging and cleaning
+
+```{r}
+colSums(is.na(climate))
+
+climate_clean <- climate %>%
+  mutate(country = as.factor(country),
+         event_type = as.factor(event_type)) %>%
+  
+  mutate(across(c(severity, duration_days, affected_population, 
+                  deaths, injuries, economic_impact_million_usd, 
+                  infrastructure_damage_score, total_casualties, impact_per_capita), 
+                  as.numeric)) %>%
+  
+  select(-event_id)
+
+#summary(climate_clean)
+head(climate_clean, n = 5)
+```
+
+Here we have no NA values in our dataset. The data is organized chronologically and the event_id column has been removed. All of our numeric values have also been mutated into a numeric type. Country and event_type have been made factors, prioritizing them over other variables. This is especially useful when grouping items.
+
+# Exploratory data analysis and visualization
+
+I want to look at data and see which event types are the most economically devastating ranked, which countries suffered the most economic damage ranked, as well as the distribution of event types.
+
+### Economic damage by event type 2020 - 2025
+
+```{r}
+climate_clean %>%
+  group_by(event_type) %>%
+  summarise(
+    total_damage = sum(economic_impact_million_usd, na.rm = TRUE),
+    avg_damage = mean(economic_impact_million_usd, na.rm = TRUE)
+  ) %>%
+  arrange(desc(total_damage))
+
+ggplot(climate_clean, aes(x = reorder(event_type, economic_impact_million_usd, sum),
+                          y = economic_impact_million_usd, fill = event_type)) +
+      geom_bar(stat = "summary", fun = "sum") +
+      coord_flip() +
+      labs(title = "Total Economic Impact by Event Type 2020-2025",
+      x = "Event Type", y = "Total Damage (Million USD)") +
+      theme_minimal() +
+      theme(legend.position = "none")
+
+```
+
+The data above show us that heatwaves are the most costly disasters. I theorize this is due to longer duration periods and the relation it has to other disasters such as droughts and wildfires. For this plot, I simply summed the total damage cost in USD by disaster as well as the number of times these disasters have struck. As shown, the number of heatwaves is does not stand out, but the average cost on the economy is much higher.
+
+### Distribution of event types 2020 - 2025
+
+```{r}
+event_counts <- climate_clean %>%
+  group_by(event_type) %>%
+  summarise(num_events = n()) %>%
+  arrange(desc(num_events))
+
+event_counts
+
+ggplot(event_counts, aes(x = reorder(event_type, num_events), 
+                         y = num_events, fill = event_type)) +
+      geom_col() +
+      coord_flip() +
+      labs(title = "Number of Events by Event Type 2020-2025",
+      x = "Event Type", y = "Number of Events") +
+      theme_minimal() +
+      theme(legend.position = "none")
+
+```
+
+Above is a plot of the count of each event type. This further shows that the number of each type of disaster is relatively similar. Heatwave is near the bottom and yet it was the event with the most costly damages.
+
+### Total economic damage by country 2020-2025 (Top 10)
+
+```{r}
+country_total <- climate_clean %>%
+  group_by(country) %>%
+  summarise(total_damage = sum(economic_impact_million_usd, na.rm = TRUE)) %>%
+  arrange(desc(total_damage)) %>%
+  head(10)
+
+country_total
+
+ggplot(country_total, aes(x = reorder(country, total_damage), 
+                          y = total_damage, fill = country)) +
+      geom_col() +
+      coord_flip() +
+      labs(title = "Top 10 Countries by Total Economic Impact",
+      x = "Country", y = "Total Damage (Million USD)") +
+      theme_minimal() +
+      theme(legend.position = "none")
+```
+
+Lastly, I want to look at the top 10 countries most impacted by disasters economically. Top 10 because the full list of countries would be too large. We can observe that America has the highest cost over the 5 year period.
